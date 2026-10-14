@@ -1,0 +1,61 @@
+# Single-GPU comparison: Jasper vs Tagore vs cuVS CAGRA vs ScaleGANN.
+# Paths may use ~ and $ENV vars.
+
+data_root: $ANNS_DATA          # output of prepare_data.py
+work_root: $ANNS_WORK          # indexes, graphs, logs, results
+gpu: 0                         # physical GPU index (CUDA_DEVICE_ORDER=PCI_BUS_ID)
+cpu_threads: 0                 # 0 = all cores (ScaleGANN partition/merge)
+
+repos:
+  jasper: ~/Jasper
+  tagore: ~/Tagore
+  scalegann: ~/ScaleGANN
+
+datasets: [sift-1M, deep-10M, bigann-10M]
+
+k: 10
+degree: 64                     # final graph degree for every system (Jasper supports 32/64)
+
+systems:
+  cagra:
+    enabled: true
+    intermediate_degree: 128
+    build_algo: nn_descent     # nn_descent | ivf_pq (cuVS default)
+
+  jasper:
+    enabled: true
+    alpha: 1.2
+    workspace_budget: 10GB
+    # native beam search sweep: beam_width (limit = 2 * beam_width)
+    beam_widths: [10, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512]
+
+  tagore:
+    enabled: true
+    knn_k: 96                  # GNN-Descent kNN degree (max 96, multiple of 32)
+    iters: 10
+    m: 64                      # candidates per node during pruning (max 64)
+    variants:
+      - {name: cagra, prune: CAGRA, alpha: 1.0}
+      - {name: vamana, prune: Vamana, alpha: 1.2}
+
+  scalegann:
+    enabled: true
+    intermediate_degree: 128
+    build_algo: nn_descent
+    max_duplication: 2         # -W
+    epsilon: 1.2               # -E
+    # memory_gb: GPU memory budget handed to the partitioner (-M); "auto" = GPU total.
+    # With auto, a dataset that fits the GPU yields a single shard (== CAGRA + overhead);
+    # min_partitions forces sharding to emulate the out-of-GPU-memory regime.
+    variants:
+      - {name: auto, memory_gb: auto, min_partitions: 1}
+      - {name: 4shards, memory_gb: auto, min_partitions: 4}
+    keep_partitions: false
+
+search:
+  batch_size: 10000            # queries per call (10000 = all queries in one batch)
+  repeats: 5
+  itopk: [16, 32, 48, 64, 96, 128, 192, 256, 384, 512]
+  search_width: [1, 2, 4, 8]
+  # native: dataset dtype; f16: also search float datasets in fp16 (what Jasper/Tagore use)
+  dtypes: [native, f16]

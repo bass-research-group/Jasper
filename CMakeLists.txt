@@ -268,3 +268,15 @@ if(JASPER_BUILD_FFI)
     LIBRARY DESTINATION ${PROJECT_SOURCE_DIR}/python/jasper/lib
   )
 endif()
+# Override the per-target CUDA_ARCHITECTURES lists above (e.g. -DJASPER_CUDA_ARCHS=80
+# for A100, or "native"). Empty keeps each target's hardcoded list.
+set(JASPER_CUDA_ARCHS "" CACHE STRING "Override CUDA_ARCHITECTURES of all Jasper targets")
+if(JASPER_CUDA_ARCHS)
+  get_property(_jasper_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+  foreach(_t IN LISTS _jasper_targets)
+    get_target_property(_t_type ${_t} TYPE)
+    if(NOT _t_type STREQUAL "INTERFACE_LIBRARY")
+      set_target_properties(${_t} PROPERTIES CUDA_ARCHITECTURES "${JASPER_CUDA_ARCHS}")
+    endif()
+  endforeach()
+endif()
