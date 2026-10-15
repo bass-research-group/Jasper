@@ -182,7 +182,9 @@ class Runner:
             if rc != 0:
                 return self._fail(dict(kind="export", dataset=ds, system="jasper", variant=variant), rc, out,
                                   wd / "export.log")
-            (wd / "graph_stats.json").write_text(json.dumps(parse_emitted(out)))
+            gs = parse_emitted(out)
+            (wd / "graph_stats.json").write_text(json.dumps(gs))
+            self._record(dict(kind="export", dataset=ds, system="jasper", variant=variant, ok=True, **gs))
         self.search_graph(ds, meta, "jasper", variant, graph)
 
     def build_tagore(self, ds, meta):

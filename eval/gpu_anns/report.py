@@ -16,15 +16,25 @@ COLORS = {"cagra": "#1f77b4", "jasper": "#d62728", "tagore": "#2ca02c", "scalega
 STYLES = ["-", "--", ":", "-."]
 
 
+def _key(r):
+    return (r["kind"], r["dataset"], r["system"], r.get("variant", ""), r.get("searcher", ""), r.get("dtype", ""))
+
+
 def latest(records):
     """Keep the last successful record per key (re-runs override)."""
     out = {}
     for r in records:
-        if not r.get("ok"):
-            continue
-        key = (r["kind"], r["dataset"], r["system"], r.get("variant", ""), r.get("searcher", ""), r.get("dtype", ""))
-        out[key] = r
+        if r.get("ok"):
+            out[_key(r)] = r
     return list(out.values())
+
+
+def failures(records):
+    """Steps whose most recent attempt failed and that never succeeded later."""
+    last = {}
+    for r in records:
+        last[_key(r)] = r
+    return [r for r in last.values() if not r.get("ok")]
 
 
 def pareto(points):
@@ -62,7 +72,11 @@ def main():
     ap.add_argument("results")
     ap.add_argument("--out", help="output dir (default: next to results)")
     a = ap.parse_args()
-    recs = latest(load_jsonl(a.results))
+    raw = load_jsonl(a.results)
+    recs = latest(raw)
+    failed = failures(raw)
+    exports = {(r["dataset"], r["system"], r["variant"]): r for r in recs if r["kind"] == "export"}
+    recs = [r for r in recs if r["kind"] in ("build", "search")]
     out = Path(a.out) if a.out else Path(a.results).parent
     out.mkdir(parents=True, exist_ok=True)
     env_p = Path(a.results).parent / "environment.json"
@@ -87,7 +101,10 @@ def main():
                "|---|---:|---:|---:|---|---|"]
         for r in sorted(builds[ds], key=lambda r: (r["system"], r["variant"])):
             st = ", ".join(f"{k}={fmt(v, 2)}" for k, v in (r.get("stages") or {}).items())
-            g = r.get("graph") or {}
+            g = r.get("graph") or exports.get((ds, r["system"], r["variant"]), {}).get("graph") or {}
+            gs_file = Path(a.results).parent.parent / ds / f"{r['system']}-{r['variant']}" / "graph_stats.json"
+            if not g and gs_file.exists():  # results from before export records existed
+                g = json.loads(gs_file.read_text()).get("graph", {})
             gs = f"deg {g.get('degree')}" + (f", avg {g['avg_out_degree']:.1f}" if "avg_out_degree" in g else "")
             if r["system"] == "scalegann":
                 gs += f", {r.get('n_shards')} shards, dup {r.get('duplication', 0):.2f}x"
@@ -136,6 +153,15 @@ def main():
             fig.savefig(png, dpi=150)
             plt.close(fig)
             md += [f"![{ds} {dt}]({png.name})", ""]
+
+    if failed:
+        md += ["## Failed steps", "", "| dataset | step | system | log | last lines |", "|---|---|---|---|---|"]
+        for r in failed:
+            tail = (r.get("error_tail") or "").strip().splitlines()[-3:]
+            md.append(f"| {r['dataset']} | {r['kind']} {r.get('searcher', '')} {r.get('dtype', '')} | "
+                      f"{r['system']}-{r.get('variant', '')} | `{r.get('log', '')}` | "
+                      + "<br>".join(t.replace("|", "\\|") for t in tail) + " |")
+        md.append("")
 
     (out / "report.md").write_text("\n".join(md))
     print(f"wrote {out / 'report.md'}")
