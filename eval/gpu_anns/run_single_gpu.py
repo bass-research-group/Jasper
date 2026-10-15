@@ -250,6 +250,7 @@ class Runner:
                 part_s = parse_float(r"Disk partition duration: (\d+) milliseconds", out) / 1e3
                 # 2) per-shard CAGRA build (sequential on one GPU)
                 cmd = [PY, HERE / "build.py", "scalegann-shards", "--base-folder", parts, "--index-name", index_name,
+                       "--base", self.data_root / ds / meta["base"],
                        "--degree", self.R, "--inter-degree", inter, "--algo", algo]
                 rc, w_build, out, peak = self._run(cmd, wd / "shards.log", cwd=HERE)
                 if rc != 0:

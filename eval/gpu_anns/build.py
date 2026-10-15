@@ -101,6 +101,16 @@ def cmd_scalegann_shards(a):
     base = Path(a.base_folder)
     parts = sorted((p for p in base.iterdir() if p.is_dir() and p.name.startswith("partition")),
                    key=lambda p: int(p.name[len("partition"):]))
+    # Every point must land in at least one shard, or the merged graph is missing rows.
+    n_total = int(np.fromfile(a.base, dtype=np.uint32, count=1)[0])
+    covered = np.zeros(n_total, dtype=bool)
+    for p in parts:
+        idmap = np.fromfile(p / "idmap.ibin", dtype=np.uint32)[1:]
+        covered[idmap] = True
+    missing = int(n_total - covered.sum())
+    if missing:
+        raise SystemExit(f"ScaleGANN partition dropped {missing}/{n_total} points "
+                         f"({len(parts)} shards); merged index would be incomplete")
     shard_build_s, shard_wall_s, sizes = [], [], []
     for p in parts:
         data_file = next(f for f in p.iterdir() if f.name.startswith("data."))
@@ -163,6 +173,7 @@ def main():
 
     p = sub.add_parser("scalegann-shards")
     p.add_argument("--base-folder", required=True)
+    p.add_argument("--base", required=True, help="original base file (for the coverage check)")
     p.add_argument("--index-name", required=True)
     cagra_args(p)
 
