@@ -45,6 +45,7 @@ ScaleGANN's original scripts build shards with RAFT-24.10 `RAFT_CAGRA_ANN_BENCH`
   - The CLI is compiled only for R ∈ {32, 64}, with L=64 fixed at compile time.
   - Storage and compute are fp16.
   - Its per-target CUDA arch lists are hardcoded to `89;90;120`. `setup.sh` overrides them through the new `-DJASPER_CUDA_ARCHS` option.
+  - `setup.sh` builds into `build-eval/` in each repo and leaves your own `build/` directories alone.
   - RaBitQ code is present but not yet used by build or search.
 - **ScaleGANN**
   - Its search (`searchScaleGANN`) runs on the CPU, so only its merged graph is evaluated here, on the GPU.

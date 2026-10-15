@@ -139,7 +139,7 @@ class Runner:
         wd.mkdir(parents=True, exist_ok=True)
         idx = wd / "index.jasper"
         graph = wd / "graph.u32bin"
-        bindir = self.repos["jasper"] / "build" / "bin"
+        bindir = self.repos["jasper"] / "build-eval" / "bin"
         d = self.data_root / ds
         dtype = "float" if meta["dtype"] == "float32" else "uint8"
         base = dict(kind="build", dataset=ds, system="jasper", variant=variant)
@@ -197,7 +197,7 @@ class Runner:
             base = dict(kind="build", dataset=ds, system="tagore", variant=variant)
             if not self._is_done(**base) or not graph.exists():
                 wd.mkdir(parents=True, exist_ok=True)
-                cmd = [PY, HERE / "build.py", "tagore", "--tagore-build", self.repos["tagore"] / "build",
+                cmd = [PY, HERE / "build.py", "tagore", "--tagore-build", self.repos["tagore"] / "build-eval",
                        "--fvecs", self.data_root / ds / meta["fvecs"], "--n", meta["n"], "--dim", meta["dim"],
                        "--knn-k", c.get("knn_k", 96), "--iters", c.get("iters", 10), "--degree", self.R,
                        "--m", c.get("m", 64), "--prune", v["prune"], "--alpha", v.get("alpha", 1.0),
@@ -219,7 +219,7 @@ class Runner:
 
     def build_scalegann(self, ds, meta):
         c = self.cfg["systems"]["scalegann"]
-        bindir = self.repos["scalegann"] / "build"
+        bindir = self.repos["scalegann"] / "build-eval"
         inter = c.get("intermediate_degree", 128)
         algo = c.get("build_algo", "nn_descent")
         for v in c["variants"]:
